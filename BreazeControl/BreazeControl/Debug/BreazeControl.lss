@@ -93,7 +93,7 @@ int main(void)
 {
     while(1)
     {
-        m_wait(50);
+        m_wait(100);
 		m_red(TOGGLE);
   c4:	90 e4       	ldi	r25, 0x40	; 64
 	#else
@@ -103,8 +103,8 @@ int main(void)
 
 	__builtin_avr_delay_cycles(__ticks_dc);
   c6:	2f ef       	ldi	r18, 0xFF	; 255
-  c8:	30 e7       	ldi	r19, 0x70	; 112
-  ca:	82 e0       	ldi	r24, 0x02	; 2
+  c8:	31 ee       	ldi	r19, 0xE1	; 225
+  ca:	84 e0       	ldi	r24, 0x04	; 4
   cc:	21 50       	subi	r18, 0x01	; 1
   ce:	30 40       	sbci	r19, 0x00	; 0
   d0:	80 40       	sbci	r24, 0x00	; 0

@@ -14,7 +14,7 @@ int main(void)
 {
     while(1)
     {
-        m_wait(50);
+        m_wait(100);
 		m_red(TOGGLE);
     }
 }
