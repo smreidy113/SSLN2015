@@ -2,7 +2,7 @@
  * BreazeControl.c
  *
  * Created: 11/6/2014 9:37:08 PM
- *  Author: Sean
+ *  Author: Sean, Patrik
  */ 
 
 
