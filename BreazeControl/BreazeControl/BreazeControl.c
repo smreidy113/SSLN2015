@@ -240,7 +240,7 @@ int main(void)
 		}
 		else if (maxADC >= thresholdhigh) {
 			state = oppDir(state);
-			spd = (1023 - maxADC) / (1023 - thresholdhigh);
+			spd = 1.0 - (1023 - maxADC) / (1023 - thresholdhigh);
 		}
 		else {
 			spd = 1.0 - (maxADC / thresholdlow);
