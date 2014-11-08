@@ -243,7 +243,7 @@ int main(void)
 			spd = (1023 - maxADC) / (1023 - thresholdhigh);
 		}
 		else {
-			spd = 1 - (maxADC / thresholdlow);
+			spd = 1.0 - (maxADC / thresholdlow);
 		}
 		
 		switch (state) {
