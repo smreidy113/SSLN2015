@@ -5,6 +5,15 @@
  *  Author: Sean
  */ 
 
+
+#define WAIT 0
+#define FORWARD 1
+#define BACKWARD 2
+#define TURNLEFT 3
+#define TURNRIGHT 4
+#define ROTATELEFT 5
+#define ROTATERIGHT 6
+
 #define F_CPU 16000000UL
 #include "m_general.h"
 
@@ -13,6 +22,9 @@
 int i = 0;
 int flag = 0;
 int ADCarr[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	
+char state = 0;
+float spd = 0;
 
 void chooseInput(int i) {
 	switch (i) {
@@ -138,13 +150,111 @@ void getADC() {
 	
 }
 
+void drive_straight(char dir, float speed) {
+	switch (dir) {
+		case FORWARD:
+			set(PORTB, 2);
+			set(PORTB, 3);
+			break;
+		case BACKWARD:
+			clear(PORTB, 2);
+			clear(PORTB, 3);
+			break;
+	}
+	OCR1B = (unsigned int) (OCR1A * speed);
+	OCR3B = (unsigned int) (ICR3 * speed);
+}
+
+int oppDir(int st) {
+	if (st == 1) {
+		return 2;
+	} else {
+		return 1;
+	}
+}
+
 int main(void)
 {
+	
+	//TIMER 1: for left wheel
+	set(TCCR1B, WGM13);
+	set(TCCR1B, WGM12);
+	set(TCCR1A, WGM11);
+	set(TCCR1A, WGM10);
+	
+	set(TCCR1A, COM1B1);
+	clear(TCCR1A, COM1B0);
+	
+	clear(TCCR1B, CS12);
+	clear(TCCR1B, CS11);
+	set(TCCR1B, CS10);
+	
+	OCR1A = 0xFFFF;
+	OCR1B = 0;
+	
+	
+	//TIMER 3: For right wheel
+	set(TCCR3B, WGM33);
+	set(TCCR3B, WGM32);
+	set(TCCR3A, WGM31);
+	clear(TCCR3A, WGM30);
+	
+	set(TCCR3A, COM3A1);
+	clear(TCCR3A, COM3A0);
+	
+	clear(TCCR3B, CS32);
+	clear(TCCR3B, CS31);
+	set(TCCR3B, CS30);
+	
+	ICR3 = 0xFFFF;
+	OCR3A = 0;
+	
+	set(DDRB,6);
+	set(DDRC,6);
+	
+	set(DDRB,2);
+	set(DDRB,3);
+	
+	int thresholdlow = 700;
+	int thresholdhigh = 800;
+	
+	int maxADC = 0;
+	
     while(1)
     {
         m_wait(100);
 		m_red(TOGGLE);
 		getADC();
+		
+		if (ADCarr[0] > ADCarr[1]) {
+			state = FORWARD;
+			maxADC = ADCarr[0];
+		}
+		else {
+			state = BACKWARD;
+			maxADC = ADCarr[1];
+		}
+		
+		if (maxADC < thresholdhigh && maxADC > thresholdlow) {
+			state = WAIT;
+		}
+		else if (maxADC >= thresholdhigh) {
+			state = oppDir(state);
+			spd = (1023 - maxADC) / (1023 - thresholdhigh);
+		}
+		else {
+			spd = 1 - (maxADC / thresholdlow);
+		}
+		
+		switch (state) {
+			case FORWARD:
+				drive_straight(FORWARD, spd);
+				break;
+			case BACKWARD:
+				drive_straight(BACKWARD, spd);
+				break;
+		}
+		
     }
 }
 
