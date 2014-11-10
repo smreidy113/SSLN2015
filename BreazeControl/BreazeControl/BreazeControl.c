@@ -26,6 +26,8 @@ int ADCarr[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 char state = 0;
 float spd = 0;
 
+char newcycle = 0;
+
 void chooseInput(int i) {
 	switch (i) {
 		case 0:
@@ -209,6 +211,22 @@ int main(void)
 	ICR3 = 0xFFFF;
 	OCR3A = 0;
 	
+	
+	//TIMER 0: For control loop
+	clear(TCCR0B, CS02);
+	clear(TCCR0B, CS01);
+	set(TCCR0B, CS00);
+	
+	clear(TCCR0B, WGM02);
+	set(TCCR0A, WGM01);
+	clear(TCCR0A, WGM00);
+	
+	clear(TCCR0A, COM0B1);
+	clear(TCCR0A, COM0B0);
+	
+	OCR0A = 0xFF;
+	OCR0B = 0;
+	
 	set(DDRB,6);
 	set(DDRC,6);
 	
@@ -220,46 +238,57 @@ int main(void)
 	
 	int maxADC = 0;
 	
+	char constantcontrol = 0;
+
+	
+	set(DDRB,0);
+	
     while(1)
     {
-        m_wait(100);
-		m_red(TOGGLE);
-		getADC();
+		if (!constantcontrol || newcycle) {
+			newcycle = 0;
+			m_red(TOGGLE);
+			getADC();
+			toggle(PORTB,0);
+			if (ADCarr[0] > ADCarr[1]) {
+				state = FORWARD;
+				maxADC = ADCarr[0];
+			}
+			else {
+				state = BACKWARD;
+				maxADC = ADCarr[1];
+			}
 		
-		if (ADCarr[0] > ADCarr[1]) {
-			state = FORWARD;
-			maxADC = ADCarr[0];
-		}
-		else {
-			state = BACKWARD;
-			maxADC = ADCarr[1];
-		}
+			if (maxADC < thresholdhigh && maxADC > thresholdlow) {
+				state = WAIT;
+			}
+			else if (maxADC >= thresholdhigh) {
+				state = oppDir(state);
+				spd = 1.0 - (1023 - maxADC) / (1023 - thresholdhigh);
+			}
+			else {
+				spd = 1.0 - (maxADC / thresholdlow);
+			}
 		
-		if (maxADC < thresholdhigh && maxADC > thresholdlow) {
-			state = WAIT;
-		}
-		else if (maxADC >= thresholdhigh) {
-			state = oppDir(state);
-			spd = 1.0 - (1023 - maxADC) / (1023 - thresholdhigh);
-		}
-		else {
-			spd = 1.0 - (maxADC / thresholdlow);
-		}
+			switch (state) {
+				case FORWARD:
+					drive_straight(FORWARD, spd);
+					break;
+				case BACKWARD:
+					drive_straight(BACKWARD, spd);
+					break;
+			}
 		
-		switch (state) {
-			case FORWARD:
-				drive_straight(FORWARD, spd);
-				break;
-			case BACKWARD:
-				drive_straight(BACKWARD, spd);
-				break;
 		}
-		
-    }
+	}
 }
 
 ISR(ADC_vect) {
 	//cli();
 	conversion = 1;
 	//sei();
+}
+
+ISR(TIMER0_OVF_vect) {
+	newcycle = 1;
 }
