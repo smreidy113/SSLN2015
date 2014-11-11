@@ -37,7 +37,10 @@ SUBDIRS :=
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS +=  \
-../BreazeControl.c
+../BreazeControl.c \
+../control.c \
+../map.c \
+../point.c
 
 
 PREPROCESSING_SRCS += 
@@ -47,16 +50,28 @@ ASM_SRCS +=
 
 
 OBJS +=  \
-BreazeControl.o
+BreazeControl.o \
+control.o \
+map.o \
+point.o
 
 OBJS_AS_ARGS +=  \
-BreazeControl.o
+BreazeControl.o \
+control.o \
+map.o \
+point.o
 
 C_DEPS +=  \
-BreazeControl.d
+BreazeControl.d \
+control.d \
+map.d \
+point.d
 
 C_DEPS_AS_ARGS +=  \
-BreazeControl.d
+BreazeControl.d \
+control.d \
+map.d \
+point.d
 
 OUTPUT_FILE_PATH +=BreazeControl.elf
 
@@ -72,6 +87,12 @@ LINKER_SCRIPT_DEP+=
 
 
 # AVR32/GNU C Compiler
+
+
+
+
+
+
 
 
 

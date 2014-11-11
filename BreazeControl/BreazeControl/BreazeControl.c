@@ -9,13 +9,15 @@
 #define WAIT 0
 #define FORWARD 1
 #define BACKWARD 2
-#define TURNLEFT 3
+#define TURNLEFT 3b
 #define TURNRIGHT 4
 #define ROTATELEFT 5
 #define ROTATERIGHT 6
 
 #define F_CPU 16000000UL
 #include "m_general.h"
+#include "control.h"
+#include "map.h"
 
 #include <avr/io.h>
 
@@ -26,7 +28,7 @@ int ADCarr[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 char state = 0;
 float spd = 0;
 
-char newcycle = 0;
+volatile char newcycle = 0;
 
 void chooseInput(int i) {
 	switch (i) {
@@ -154,6 +156,8 @@ void getADC() {
 
 void drive_straight(char dir, float speed) {
 	switch (dir) {
+		case WAIT:
+			break;
 		case FORWARD:
 			set(PORTB, 2);
 			set(PORTB, 3);
@@ -167,16 +171,10 @@ void drive_straight(char dir, float speed) {
 	OCR3B = (unsigned int) (ICR3 * speed);
 }
 
-int oppDir(int st) {
-	if (st == 1) {
-		return 2;
-	} else {
-		return 1;
-	}
-}
-
 int main(void)
 {
+	
+	sei();
 	
 	//TIMER 1: for left wheel
 	set(TCCR1B, WGM13);
@@ -214,18 +212,22 @@ int main(void)
 	
 	//TIMER 0: For control loop
 	clear(TCCR0B, CS02);
-	clear(TCCR0B, CS01);
+	set(TCCR0B, CS01);
 	set(TCCR0B, CS00);
 	
-	clear(TCCR0B, WGM02);
-	set(TCCR0A, WGM01);
-	clear(TCCR0A, WGM00);
+	set(TCCR0B, WGM02);
+	clear(TCCR0A, WGM01);
+	set(TCCR0A, WGM00);
 	
 	clear(TCCR0A, COM0B1);
 	clear(TCCR0A, COM0B0);
 	
-	OCR0A = 0xFF;
-	OCR0B = 0;
+	set(TIMSK0,TOIE0);
+	
+	double controlfreq = 200;
+	
+	OCR0A = (unsigned int) (7801.8/(controlfreq/2));
+	OCR0B = 0x00;
 	
 	set(DDRB,6);
 	set(DDRC,6);
@@ -233,13 +235,7 @@ int main(void)
 	set(DDRB,2);
 	set(DDRB,3);
 	
-	int thresholdlow = 700;
-	int thresholdhigh = 800;
-	
-	int maxADC = 0;
-	
-	char constantcontrol = 0;
-
+	char constantcontrol = 1;
 	
 	set(DDRB,0);
 	
@@ -247,37 +243,12 @@ int main(void)
     {
 		if (!constantcontrol || newcycle) {
 			newcycle = 0;
-			m_red(TOGGLE);
+			//m_red(TOGGLE);
 			getADC();
 			toggle(PORTB,0);
-			if (ADCarr[0] > ADCarr[1]) {
-				state = FORWARD;
-				maxADC = ADCarr[0];
-			}
-			else {
-				state = BACKWARD;
-				maxADC = ADCarr[1];
-			}
-		
-			if (maxADC < thresholdhigh && maxADC > thresholdlow) {
-				state = WAIT;
-			}
-			else if (maxADC >= thresholdhigh) {
-				state = oppDir(state);
-				spd = 1.0 - (1023 - maxADC) / (1023 - thresholdhigh);
-			}
-			else {
-				spd = 1.0 - (maxADC / thresholdlow);
-			}
-		
-			switch (state) {
-				case FORWARD:
-					drive_straight(FORWARD, spd);
-					break;
-				case BACKWARD:
-					drive_straight(BACKWARD, spd);
-					break;
-			}
+			
+			CtrlOutput *control = straight_control(&ADCarr[0]);
+			drive_straight(control->state, control->speed);
 		
 		}
 	}
@@ -291,4 +262,5 @@ ISR(ADC_vect) {
 
 ISR(TIMER0_OVF_vect) {
 	newcycle = 1;
+	m_red(TOGGLE);
 }

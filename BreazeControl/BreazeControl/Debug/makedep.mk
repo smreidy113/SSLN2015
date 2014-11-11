@@ -4,3 +4,9 @@
 
 BreazeControl.c
 
+control.c
+
+map.c
+
+point.c
+
