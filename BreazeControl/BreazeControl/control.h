@@ -10,4 +10,4 @@ typedef struct CtrlOutput_tag {
 	float speed;
 	} CtrlOutput;
 	
-CtrlOutput *straight_control(float *ADCs);
+CtrlOutput *straight_control(int *ADCs);

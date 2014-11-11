@@ -9,7 +9,7 @@ int oppDir(int st) {
 	}
 }
 
-CtrlOutput *straight_control(float *ADCs) {
+CtrlOutput *straight_control(int *ADCs) {
 	int thresholdlow = 700;
 	int thresholdhigh = 800;
 	unsigned int maxADC;

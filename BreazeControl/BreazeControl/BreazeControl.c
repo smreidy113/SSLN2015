@@ -9,7 +9,7 @@
 #define WAIT 0
 #define FORWARD 1
 #define BACKWARD 2
-#define TURNLEFT 3b
+#define TURNLEFT 3
 #define TURNRIGHT 4
 #define ROTATELEFT 5
 #define ROTATERIGHT 6
@@ -37,47 +37,50 @@ void chooseInput(int i) {
 		clear(ADMUX, MUX2);	//^
 		clear(ADMUX, MUX1);	//^
 		clear(ADMUX, MUX0);	//^
-
 		break;
+		
 		case 1:
 		clear(ADCSRB, MUX5);//Set analog input (F1)
 		clear(ADMUX, MUX2);	//^
 		clear(ADMUX, MUX1);	//^
 		set(ADMUX, MUX0);	//^
-
 		break;
+		
 		case 2:
 		clear(ADCSRB, MUX5);//Set analog input (F4)
 		set(ADMUX, MUX2);	//^
 		clear(ADMUX, MUX1);	//^
 		clear(ADMUX, MUX0);	//^
-
 		break;
+		
 		case 3:
-
 		clear(ADCSRB, MUX5);//Set analog input (F5)
 		set(ADMUX, MUX2);	//^
 		clear(ADMUX, MUX1);	//^
 		set(ADMUX, MUX0);	//^
 		break;
+		
 		case 4:
 		clear(ADCSRB, MUX5);//Set analog input (F6)
 		set(ADMUX, MUX2);	//^
 		set(ADMUX, MUX1);	//^
 		clear(ADMUX, MUX0);	//^
 		break;
+		
 		case 5:
 		set(ADCSRB, MUX5);//Set analog input (D4)
 		clear(ADMUX, MUX2);	//^
 		clear(ADMUX, MUX1);	//^
 		clear(ADMUX, MUX0);	//^
 		break;
+		
 		case 6:
 		set(ADCSRB, MUX5);//Set analog input (D6)
 		clear(ADMUX, MUX2);	//^
 		clear(ADMUX, MUX1);	//^
 		set(ADMUX, MUX0);	//^
 		break;
+		
 		case 7:
 		clear(ADCSRB, MUX5);//Set analog input (F7)
 		set(ADMUX, MUX2);
@@ -150,8 +153,6 @@ void getADC() {
 	ADCarr[5] = ADC5;
 	ADCarr[6] = ADC6;
 	ADCarr[7] = ADC7;
-	
-	
 }
 
 void drive_straight(char dir, float speed) {
@@ -224,7 +225,7 @@ int main(void)
 	
 	set(TIMSK0,TOIE0);
 	
-	double controlfreq = 200;
+	double controlfreq = 200; //CHANGE THIS NUMBER TO FIX SAMPLING RATE
 	
 	OCR0A = (unsigned int) (7801.8/(controlfreq/2));
 	OCR0B = 0x00;
@@ -243,7 +244,6 @@ int main(void)
     {
 		if (!constantcontrol || newcycle) {
 			newcycle = 0;
-			//m_red(TOGGLE);
 			getADC();
 			toggle(PORTB,0);
 			
