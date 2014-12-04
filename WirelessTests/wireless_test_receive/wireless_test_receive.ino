@@ -7,20 +7,15 @@ int incomingByte = 0;
 int onoff = 0;
 int pin = 13;
 void setup(){
+  pinMode(0,INPUT);
   //2400 baud for the 434 model
-  Serial.begin(2400);
+  Serial.begin(4800);
 }
 void loop(){
   // read in values, debug to compute
   if (Serial.available() > 0) {
     incomingByte = Serial.read();
-    if (onoff == 0) {
-      digitalWrite(pin, HIGH);
-      onoff = 1;
-    } else {
-      digitalWrite(pin, LOW);
-      onoff = 0;
-    }
+    digitalWrite(pin, !digitalRead(pin));
     Serial.println(incomingByte, DEC);
   }
   incomingByte = 0;
