@@ -24,6 +24,7 @@ void setup() {
   vw_rx_start();       // Start the receiver PLL running
   pinMode(poutput, OUTPUT);
   digitalWrite(poutput, LOW);
+  //pinMode(6, OUTPUT);
 }
 
 void loop() {
@@ -38,11 +39,12 @@ void loop() {
 
     if (vw_get_message(buf, &buflen)) // Non-blocking
     {
-        pulseOut(poutput, 10);
+        //digitalWrite(6, !digitalRead(6));
+        //pulseOut(poutput, 10);
         digitalWrite(13, true); // Flash a light to show received good message
 	// Message with a good checksum received, dump it.
-	
-	Serial.println("");
+	Serial.print("received");
+	Serial.println(*buf);
         digitalWrite(13, false);
     }
 }
