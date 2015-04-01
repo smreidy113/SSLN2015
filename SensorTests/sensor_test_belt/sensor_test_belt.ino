@@ -16,7 +16,7 @@ void pulseOut(int pin, int us)
 void setup() {
   Serial.begin(4800);	// Debugging only
   Serial.println("setup");
-
+  vw_set_ptt_pin(5);
   // Initialise the IO and ISR
   vw_set_ptt_inverted(true); // Required for DR3100
   vw_setup(2400);	 // Bits per sec
