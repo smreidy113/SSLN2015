@@ -154,9 +154,9 @@ void getFilteredOrientation() {
 void getToHuman(double dist, double ang) {
   
   //Distance
-  double P = .02;
+  double P = .0005;
   double I = 0;
-  double D = 0;//P * dt / 8;
+  double D = 0.1;//P * dt / 8;
 
   double maxError;
 
@@ -197,6 +197,9 @@ void getToHuman(double dist, double ang) {
   if (spd > 0.5) {
     spd = 0.5;
   }
+  if (spd < -0.5) {
+    spd = -0.5;
+  }
   
   
   
@@ -219,6 +222,8 @@ void getToHuman(double dist, double ang) {
   
   double deg = 1 - (totalAngleControl / maxControl);
   
+  char forwardorback;
+  
   if (isnan(spd)) {
     spd = 0;
   }
@@ -226,7 +231,10 @@ void getToHuman(double dist, double ang) {
     spd = 1.0;
   }
   if (spd < 0.0) {
-    spd = 0.0;
+    spd = -1*spd;
+    forwardorback = BACKWARD;
+  } else {
+    forwardorback = FORWARD;
   }
   
   int dir;
@@ -242,15 +250,9 @@ void getToHuman(double dist, double ang) {
     Serial.print(spd);
   }
   
-  char forwardorback;
+
   
-  if (dist < optimalDistance) {
-    forwardorback = BACKWARD;
-    spd = 0;
-  }
-  else {
-    forwardorback = FORWARD;
-  }
+  
   drive(spd, dir, deg, forwardorback);
 }
 
