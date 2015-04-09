@@ -39,12 +39,22 @@ void loop() {
 
     if (vw_get_message(buf, &buflen)) // Non-blocking
     {
+<<<<<<< HEAD
         //digitalWrite(6, !digitalRead(6));
         //pulseOut(poutput, 10);
         digitalWrite(13, true); // Flash a light to show received good message
 	// Message with a good checksum received, dump it.
 	Serial.print("received");
 	Serial.println(*buf);
+=======
+      if (buflen == 1) {
+        pulseOut(poutput, 10);
+        digitalWrite(13, true); // Flash a light to show received good message
+        // Message with a good checksum received, dump it.
+  	
+        Serial.println("");
+>>>>>>> e2511420ab67fa4b8352158287211f4ae5530020
         digitalWrite(13, false);
+      }
     }
 }

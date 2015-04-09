@@ -1,9 +1,10 @@
 #include <VirtualWire.h>
 #include <VirtualWire_Config.h>
+#include <stdlib.h>
 
 #define DIST_BETWEEN_SENSORS 22.3
-#define BETAD 0.4
-#define BETAO 0.4
+#define BETAD 0.1
+#define BETAO 0.1
 #define LEFT 1
 #define RIGHT 2
 #define FORWARD 3
@@ -53,7 +54,7 @@ double getOrientationInfo(int d1, int d2) {
 int pinput1 = 31;
 int pinput2 = 35;
 int pinput3 = 39;
-int wireless = 49;
+int wireless = 12;
 unsigned long duration;
 unsigned long duration1;
 unsigned long duration2;
@@ -66,15 +67,17 @@ double totalErrorAngle = 0;
 double optimalDistance = 100;
 double dt = 1.0/12;
 
-int pwm1 = 5;
+int pwm1 = 7;
 int pwm2 = 6;
-int dir11 = 50;
-int dir12 = 49;
-int dir21 = 46;
-int dir22 = 47;
+int dir11 = 22;
+int dir12 = 23;
+int dir21 = 24;
+int dir22 = 25;
 
 float prevDist;
 float prevOrientation;
+
+float prevSpd = 0;
 
 void drive(double spd, int turndir, double degree, int dir) {
   if (turndir == RIGHT) {
@@ -97,17 +100,17 @@ void drive(double spd, int turndir, double degree, int dir) {
       analogWrite(pwm2, (unsigned char) (degree * spd * 255));
     }
   }
-  if (dir == FORWARD) {
+  if (dir == BACKWARD) {
     digitalWrite(dir11, HIGH);
     digitalWrite(dir12, LOW);
-    digitalWrite(dir21, HIGH);
-    digitalWrite(dir22, LOW);
+    digitalWrite(dir21, LOW);
+    digitalWrite(dir22, HIGH);
   }
   else {
     digitalWrite(dir11, LOW);
     digitalWrite(dir12, HIGH);
-    digitalWrite(dir21, LOW);
-    digitalWrite(dir22, HIGH);
+    digitalWrite(dir21, HIGH);
+    digitalWrite(dir22, LOW);
   }
 }
 
@@ -151,9 +154,9 @@ void getFilteredOrientation() {
 void getToHuman(double dist, double ang) {
   
   //Distance
-  double P = .035;
+  double P = .02;
   double I = 0;
-  double D = 0;
+  double D = 0;//P * dt / 8;
 
   double maxError;
 
@@ -179,7 +182,11 @@ void getToHuman(double dist, double ang) {
   Serial.print(fabs(totalDistControl));
   Serial.print("\t");
   
-  double spd = (double) fabs(totalDistControl) / maxControl;
+  double spdchange = (double) fabs(totalDistControl) / maxControl;
+  
+  double spd = prevSpd + spdchange;
+  
+  prevSpd = spd;
   
   Serial.print(spd);
   Serial.print("\n");
@@ -187,16 +194,16 @@ void getToHuman(double dist, double ang) {
   if (isnan(spd)) {
     spd = 0;
   }
-  if (spd > 0.7) {
-    spd = 0.7;
+  if (spd > 0.5) {
+    spd = 0.5;
   }
   
   
   
   //Orientation
-  P = 1;
+  P = 0.2;
   I = 0;
-  D = 0;
+  D = 0;//P * dt / 8;
   
   maxError = 45;
   
@@ -257,7 +264,7 @@ void pulseOut(int pin, int us)
 }
 
 void setup() {
-  Serial.begin(4800);	  // Debugging only
+  Serial.begin(9600);	  // Debugging only
 
   // Initialise the IO and ISR
   //vw_set_tx_pin(13);
@@ -284,6 +291,7 @@ int getTime(int pin) {
   //delay(4);
   pinMode(pin, OUTPUT);
   pulseOut(pin, 0);
+  pinMode(pin, INPUT);
   digitalWrite(pin, LOW);
   return pulseIn(pin, HIGH)/29;
   
@@ -293,16 +301,12 @@ int getTime(int pin) {
 
 void loop() {
   //vw_setup(2400);
-  const char *msg1 = "1";
-  const char *msg2 = "2";
-  const char *msg3 = "3";
-  vw_send((uint8_t *)msg1, strlen(msg1));
-  vw_wait_tx();
-  vw_send((uint8_t *)msg1, strlen(msg1));
-  //digitalWrite(wireless, HIGH);
-  //delay(10);
-  
-  //vw_wait_tx(); // Wait until the whole message is gone
+  const char *msg2 = "1";
+  const char *msg3 = "2";
+  digitalWrite(13,HIGH);
+  vw_send((uint8_t *)msg2, strlen(msg2));
+  vw_send((uint8_t *)msg2, strlen(msg2));
+  digitalWrite(13,LOW);
   //duration = getTime(pinput1);
   //digitalWrite(wireless, LOW);
   //delay(20);
@@ -310,14 +314,17 @@ void loop() {
   //digitalWrite(wireless, HIGH);
   //delay(10);
   
-  vw_wait_tx(); // Wait until the whole message is gone
+  //vw_wait_tx(); // Wait until the whole message is gone
   duration = getTime(pinput1);
   //digitalWrite(wireless, LOW);
   //delay(20);
   //delay(500);
   //vw_wait_tx();
+  digitalWrite(13,HIGH);
   vw_send((uint8_t *)msg2, strlen(msg2));
-  vw_wait_tx();
+  //vw_send((uint8_t *)msg2, strlen(msg2));
+  digitalWrite(13,LOW);
+  //vw_wait_tx();
   //digitalWrite(wireless, HIGH);
   //delay(10);
   
@@ -326,15 +333,18 @@ void loop() {
   //delay(20);
   //delay(500);
   //vw_wait_tx();
+  digitalWrite(13,HIGH);
   vw_send((uint8_t *)msg3, strlen(msg3));
-  vw_wait_tx();
+  //vw_send((uint8_t *)msg2, strlen(msg2));
+  digitalWrite(13,LOW);
   //digitalWrite(wireless, HIGH);
   //delay(10);
   
   duration2 = getTime(pinput3);
+  
   //digitalWrite(wireless, LOW);
   //delay(10);
-  getLocInfo(duration, duration1, duration2);
+  getLocInfo(duration2, duration, duration1);
   getFilteredDist();
   getFilteredOrientation();
   //getLocInfo(132,84,134);
@@ -368,5 +378,19 @@ void loop() {
   //delay(10);
   
   getToHuman(dist, ang);
+  
+  String message = "";
+  message += dist;
+  message += '\t';
+  message += ang;
+  char messagechar[20];
+  
+  message.toCharArray(messagechar, 20);
+  
+  Serial.println(messagechar);
+  
+  vw_send((uint8_t *)messagechar, strlen(messagechar));
+  
+  //drive(0.3,RIGHT,1,BACKWARD);
   
 }
