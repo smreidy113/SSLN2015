@@ -77,6 +77,8 @@ int dir22 = 25;
 float prevDist;
 float prevOrientation;
 
+float prevSpd = 0;
+
 void drive(double spd, int turndir, double degree, int dir) {
   if (turndir == RIGHT) {
     if (dir == FORWARD) {
@@ -180,7 +182,11 @@ void getToHuman(double dist, double ang) {
   Serial.print(fabs(totalDistControl));
   Serial.print("\t");
   
-  double spd = (double) fabs(totalDistControl) / maxControl;
+  double spdchange = (double) fabs(totalDistControl) / maxControl;
+  
+  double spd = prevSpd + spdchange;
+  
+  prevSpd = spd;
   
   Serial.print(spd);
   Serial.print("\n");
