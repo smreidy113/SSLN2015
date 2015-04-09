@@ -38,11 +38,13 @@ void loop() {
 
     if (vw_get_message(buf, &buflen)) // Non-blocking
     {
+      if (buflen == 1) {
         pulseOut(poutput, 10);
         digitalWrite(13, true); // Flash a light to show received good message
-	// Message with a good checksum received, dump it.
-	
-	Serial.println("");
+        // Message with a good checksum received, dump it.
+  	
+        Serial.println("");
         digitalWrite(13, false);
+      }
     }
 }
