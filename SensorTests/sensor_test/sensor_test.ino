@@ -1,5 +1,6 @@
 #include <VirtualWire.h>
 #include <VirtualWire_Config.h>
+#include <funcs.h>
 #include <stdlib.h>
 
 #define DIST_BETWEEN_SENSORS 22.3
@@ -192,7 +193,7 @@ void getToHuman(double dist, double ang) {
   Serial.print("\n");
   
   if (isnan(spd)) {
-    spd = 0;
+    spd = 0; 
   }
   if (spd > 0.5) {
     spd = 0.5;
