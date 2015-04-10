@@ -79,32 +79,50 @@ float prevOrientation;
 
 float prevSpd = 0;
 
+unsigned char leftspeed = 0;
+unsigned char rightspeed = 0;
+
 void drive(double spd, int turndir, double degree, int dir) {
   if (turndir == RIGHT) {
     if (dir == FORWARD) {
-      analogWrite(pwm1, (unsigned char) (spd * 255));
-      analogWrite(pwm2, (unsigned char) (degree * spd * 255));
+      leftspeed = (unsigned char) (spd * 255);
+      rightspeed = (unsigned char) (degree * spd * 255);
+      //analogWrite(pwm1, (unsigned char) (spd * 255));
+      //analogWrite(pwm2, (unsigned char) (degree * spd * 255));
     }
     else {
-      analogWrite(pwm1, (unsigned char) (degree * spd * 255));
-      analogWrite(pwm2, (unsigned char) (spd * 255));
+      leftspeed = (unsigned char) (degree * spd * 255);
+      rightspeed = (unsigned char) (spd * 255)
+      //analogWrite(pwm1, (unsigned char) (degree * spd * 255));
+      //analogWrite(pwm2, (unsigned char) (spd * 255));
     }
   }
   if (turndir == LEFT) {
     if (dir == FORWARD) {
-      analogWrite(pwm1, (unsigned char) (degree * spd * 255));
-      analogWrite(pwm2, (unsigned char) (spd * 255));
+      leftspeed = (unsigned char) (degree * spd * 255);
+      rightspeed = (unsigned char) (spd * 255)
+      //analogWrite(pwm1, (unsigned char) (degree * spd * 255));
+      //analogWrite(pwm2, (unsigned char) (spd * 255));
     }
     else {
-      analogWrite(pwm1, (unsigned char) (spd * 255));
-      analogWrite(pwm2, (unsigned char) (degree * spd * 255));
+      leftspeed = (unsigned char) (spd * 255);
+      rightspeed = (unsigned char) (degree * spd * 255);
+      //analogWrite(pwm1, (unsigned char) (spd * 255));
+      //analogWrite(pwm2, (unsigned char) (degree * spd * 255));
     }
   }
+  
+  analogWrite(pwm1, leftspeed);
+  analogWrite(pwm2, rightspeed);
+  
   if (dir == BACKWARD) {
     digitalWrite(dir11, HIGH);
     digitalWrite(dir12, LOW);
     digitalWrite(dir21, LOW);
     digitalWrite(dir22, HIGH);
+    
+    leftspeed = -1 * leftspeed;
+    rightspeed = =1 * rightspeed;
   }
   else {
     digitalWrite(dir11, LOW);
@@ -115,6 +133,7 @@ void drive(double spd, int turndir, double degree, int dir) {
 }
 
 void getFilteredDist() {
+  prevDist = ftriang[0];
   if (justStartedD) {
     if (!isnan(triang[0])) {
       prevDist = triang[0];
@@ -126,13 +145,13 @@ void getFilteredDist() {
     return;
   }
   if (!isnan(triang[0])) {
-    prevDist = BETAD * prevDist + (1 - BETAD) * triang[0];
+    ftriang[0] = BETAD * prevDist + (1 - BETAD) * triang[0];
   }
-  ftriang[0] = prevDist;
   return;
 }
   
 void getFilteredOrientation() {
+  prevDist = ftriang[1];
   if (justStartedO) {
     if (!isnan(triang[1])) {
       prevOrientation = triang[1];
@@ -144,9 +163,8 @@ void getFilteredOrientation() {
     return;
   }
   if (!isnan(triang[1])) {
-    prevOrientation = BETAO * prevOrientation + (1 - BETAO) * triang[1];
+    ftriang[1] = BETAO * prevOrientation + (1 - BETAO) * triang[1];
   }
-  ftriang[1] = prevOrientation;
   return;
   
 }
@@ -154,9 +172,9 @@ void getFilteredOrientation() {
 void getToHuman(double dist, double ang) {
   
   //Distance
-  double P = .0005;
+  double P = 0;
   double I = 0;
-  double D = 0.1;//P * dt / 8;
+  double D = .5;//P * dt / 8;
 
   double maxError;
 
@@ -182,7 +200,7 @@ void getToHuman(double dist, double ang) {
   Serial.print(fabs(totalDistControl));
   Serial.print("\t");
   
-  double spdchange = (double) fabs(totalDistControl) / maxControl;
+  double spdchange = (double) (totalDistControl);
   
   double spd = prevSpd + spdchange;
   
@@ -194,17 +212,17 @@ void getToHuman(double dist, double ang) {
   if (isnan(spd)) {
     spd = 0;
   }
-  if (spd > 0.5) {
-    spd = 0.5;
+  if (spd > 0.3) {
+    spd = 0.3;
   }
-  if (spd < -0.5) {
-    spd = -0.5;
+  if (spd < -0.3) {
+    spd = -0.3;
   }
   
   
   
   //Orientation
-  P = 0.2;
+  P = .002;
   I = 0;
   D = 0;//P * dt / 8;
   
@@ -213,14 +231,15 @@ void getToHuman(double dist, double ang) {
   maxControl = P * maxError;
   
   error = abs(ang);
-  prevError = abs(prevDist);
+  prevError = abs(prevOrientation);
   totalErrorAngle += error;
   
   derivativeError = (error - prevError) / dt;
   
   double totalAngleControl = P * error + I * totalErrorAngle + D * derivativeError;
   
-  double deg = 1 - (totalAngleControl / maxControl);
+  double deg = 1 - (totalAngleControl);
+  if (deg < 0) deg = 0;
   
   char forwardorback;
   
@@ -249,9 +268,6 @@ void getToHuman(double dist, double ang) {
     Serial.print("\t");
     Serial.print(spd);
   }
-  
-
-  
   
   drive(spd, dir, deg, forwardorback);
 }
@@ -358,6 +374,9 @@ void loop() {
     Serial.print(duration1);
     Serial.print("\t");
     Serial.print(duration2);
+    Serial.print("\t");
+    Serial.print("Prev Distance: ");
+    Serial.print(prevDist);
     Serial.print("\tTotal Distance: ");
     Serial.print(dist);
     Serial.print("\tOrientation: ");
@@ -385,7 +404,11 @@ void loop() {
   message += dist;
   message += '\t';
   message += ang;
-  char messagechar[20];
+  message += '\t';
+  message += leftspeed;
+  message += '\t';
+  message += rightspeed;
+  char messagechar[30];
   
   message.toCharArray(messagechar, 20);
   
