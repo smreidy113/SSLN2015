@@ -67,20 +67,22 @@ double totalErrorAngle = 0;
 double optimalDistance = 100;
 double dt = 1.0/12;
 
-int pwm1 = 7;
-int pwm2 = 6;
+int pwm1 = 6;
+int pwm2 = 7;
 int dir11 = 22;
 int dir12 = 23;
 int dir21 = 24;
 int dir22 = 25;
+int en1 = 26;
+int en2 = 27;
 
 float prevDist;
 float prevOrientation;
 
 float prevSpd = 0;
 
-unsigned char leftspeed = 0;
-unsigned char rightspeed = 0;
+int leftspeed = 0;
+int rightspeed = 0;
 
 void drive(double spd, int turndir, double degree, int dir) {
   if (turndir == RIGHT) {
@@ -92,7 +94,7 @@ void drive(double spd, int turndir, double degree, int dir) {
     }
     else {
       leftspeed = (unsigned char) (degree * spd * 255);
-      rightspeed = (unsigned char) (spd * 255)
+      rightspeed = (unsigned char) (spd * 255);
       //analogWrite(pwm1, (unsigned char) (degree * spd * 255));
       //analogWrite(pwm2, (unsigned char) (spd * 255));
     }
@@ -100,7 +102,7 @@ void drive(double spd, int turndir, double degree, int dir) {
   if (turndir == LEFT) {
     if (dir == FORWARD) {
       leftspeed = (unsigned char) (degree * spd * 255);
-      rightspeed = (unsigned char) (spd * 255)
+      rightspeed = (unsigned char) (spd * 255);
       //analogWrite(pwm1, (unsigned char) (degree * spd * 255));
       //analogWrite(pwm2, (unsigned char) (spd * 255));
     }
@@ -122,7 +124,7 @@ void drive(double spd, int turndir, double degree, int dir) {
     digitalWrite(dir22, HIGH);
     
     leftspeed = -1 * leftspeed;
-    rightspeed = =1 * rightspeed;
+    rightspeed = -1 * rightspeed;
   }
   else {
     digitalWrite(dir11, LOW);
@@ -132,6 +134,8 @@ void drive(double spd, int turndir, double degree, int dir) {
   }
 }
 
+int numNans = 0;
+
 void getFilteredDist() {
   prevDist = ftriang[0];
   if (justStartedD) {
@@ -139,19 +143,24 @@ void getFilteredDist() {
       prevDist = triang[0];
       justStartedD = 0;
       ftriang[0] = triang[0];
+      numNans = 0;
       return;
     }
+    numNans++;
     ftriang[0] = 0;
     return;
   }
   if (!isnan(triang[0])) {
     ftriang[0] = BETAD * prevDist + (1 - BETAD) * triang[0];
+    numNans = 0;
+  } else {
+    numNans++;
   }
   return;
 }
   
 void getFilteredOrientation() {
-  prevDist = ftriang[1];
+  prevOrientation = ftriang[1];
   if (justStartedO) {
     if (!isnan(triang[1])) {
       prevOrientation = triang[1];
@@ -172,9 +181,9 @@ void getFilteredOrientation() {
 void getToHuman(double dist, double ang) {
   
   //Distance
-  double P = 0;
+  double P = 0.012;
   double I = 0;
-  double D = .5;//P * dt / 8;
+  double D = 0.009;//P * dt / 8;
 
   double maxError;
 
@@ -204,25 +213,27 @@ void getToHuman(double dist, double ang) {
   
   double spd = prevSpd + spdchange;
   
-  prevSpd = spd;
-  
   Serial.print(spd);
   Serial.print("\n");
   
   if (isnan(spd)) {
     spd = 0;
   }
-  if (spd > 0.3) {
-    spd = 0.3;
+  if (spd > 0.6) {
+    spd = 0.6;
   }
-  if (spd < -0.3) {
-    spd = -0.3;
+  if (spd < -0.6) {
+    spd = -0.6;
   }
   
+  if (numNans > 20) {
+    spd = 0;
+  }
   
+  prevSpd = spd;
   
   //Orientation
-  P = .002;
+  P = .005;
   I = 0;
   D = 0;//P * dt / 8;
   
@@ -283,7 +294,7 @@ void pulseOut(int pin, int us)
 
 void setup() {
   Serial.begin(9600);	  // Debugging only
-
+  
   // Initialise the IO and ISR
   //vw_set_tx_pin(13);
   //vw_set_ptt_pin(1);
@@ -302,7 +313,11 @@ void setup() {
   pinMode(dir12, OUTPUT);
   pinMode(dir21, OUTPUT);
   pinMode(dir22, OUTPUT);
+  pinMode(en1, OUTPUT);
+  pinMode(en2, OUTPUT);
   pinMode(wireless, OUTPUT);
+  digitalWrite(en1, HIGH);
+  digitalWrite(en2, HIGH);
 }
 
 int getTime(int pin) {
@@ -318,6 +333,7 @@ int getTime(int pin) {
 //float *triang;
 
 void loop() {
+  
   //vw_setup(2400);
   const char *msg2 = "1";
   const char *msg3 = "2";
@@ -408,9 +424,11 @@ void loop() {
   message += leftspeed;
   message += '\t';
   message += rightspeed;
-  char messagechar[30];
+  message += '\t';
+  message += prevDist;
+  char messagechar[40];
   
-  message.toCharArray(messagechar, 20);
+  message.toCharArray(messagechar, 40);
   
   Serial.println(messagechar);
   
