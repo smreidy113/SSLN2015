@@ -1,6 +1,6 @@
 #include <VirtualWire.h>
 #include <VirtualWire_Config.h>
-#include <funcs.h>
+//#include <funcs.h>
 #include <stdlib.h>
 
 #define DIST_BETWEEN_SENSORS 22.3
@@ -14,7 +14,7 @@
 #define Y 32.0
 #define ZP 52.5
 
-char debug = 1;
+char debug = 0;
 
 //#include <VirtualWire.h>
 #include <stdlib.h>
@@ -68,8 +68,8 @@ double totalErrorAngle = 0;
 double optimalDistance = 100;
 double dt = 1.0/12;
 
-int pwm1 = 6;
-int pwm2 = 7;
+int pwm1 = 7;
+int pwm2 = 6;
 int dir11 = 22;
 int dir12 = 23;
 int dir21 = 24;
@@ -84,6 +84,11 @@ float prevSpd = 0;
 
 int leftspeed = 0;
 int rightspeed = 0;
+
+void spike(int dir) {
+  drive(150.0/255, RIGHT, 1, dir);
+  delay(10);
+}
 
 void drive(double spd, int turndir, double degree, int dir) {
   if (turndir == RIGHT) {
@@ -114,24 +119,27 @@ void drive(double spd, int turndir, double degree, int dir) {
       //analogWrite(pwm2, (unsigned char) (degree * spd * 255));
     }
   }
-  
-  analogWrite(pwm1, leftspeed);
+  if (dir == FORWARD) {
+    analogWrite(pwm1, leftspeed + 8);
+  } else {
+    analogWrite(pwm1, leftspeed + 1);
+  }
   analogWrite(pwm2, rightspeed);
   
   if (dir == BACKWARD) {
-    digitalWrite(dir11, HIGH);
-    digitalWrite(dir12, LOW);
-    digitalWrite(dir21, LOW);
-    digitalWrite(dir22, HIGH);
+    digitalWrite(dir11, LOW);
+    digitalWrite(dir12, HIGH);
+    digitalWrite(dir21, HIGH);
+    digitalWrite(dir22, LOW);
     
     leftspeed = -1 * leftspeed;
     rightspeed = -1 * rightspeed;
   }
   else {
-    digitalWrite(dir11, LOW);
-    digitalWrite(dir12, HIGH);
-    digitalWrite(dir21, HIGH);
-    digitalWrite(dir22, LOW);
+    digitalWrite(dir11, HIGH);
+    digitalWrite(dir12, LOW);
+    digitalWrite(dir21, LOW);
+    digitalWrite(dir22, HIGH);
   }
 }
 
@@ -182,9 +190,9 @@ void getFilteredOrientation() {
 void getToHuman(double dist, double ang) {
   
   //Distance
-  double P = 0.012;
+  double P = 0.004;
   double I = 0;
-  double D = 0.009;//P * dt / 8;
+  double D = 0.01;
 
   double maxError;
 
@@ -198,8 +206,12 @@ void getToHuman(double dist, double ang) {
   double maxControl = P * maxError;
   
   double error = dist - optimalDistance;
+  
+  if (debug) {
   Serial.print(error);
   Serial.print("\t");
+  }
+  
   double prevError = prevDist - optimalDistance;
   totalErrorDist += error;
   
@@ -207,34 +219,48 @@ void getToHuman(double dist, double ang) {
   
   double totalDistControl = P * error + I * totalErrorDist + D * derivativeError;
   
+  if (debug){
   Serial.print(fabs(totalDistControl));
   Serial.print("\t");
+  }
   
   double spdchange = (double) (totalDistControl);
   
   double spd = prevSpd + spdchange;
   
+  int thresh = 0.2;
+  
+  if ((prevSpd < thresh && spd > thresh) || (prevSpd > -1*thresh && spd < -1*thresh)) {
+    if (spd > 0) {
+      spike(FORWARD);
+    } else {
+      spike(BACKWARD);
+    }
+  }
+  
+  if (debug) {
   Serial.print(spd);
   Serial.print("\n");
+  }
   
   if (isnan(spd)) {
     spd = 0; 
   }
-  if (spd > 0.6) {
-    spd = 0.6;
+  if (spd > 0.4) {
+    spd = 0.4;
   }
-  if (spd < -0.6) {
-    spd = -0.6;
+  if (spd < -0.4) {
+    spd = -0.4;
   }
   
-  if (numNans > 20) {
+  if (numNans > 10 || dist <= 0.00) {
     spd = 0;
   }
   
   prevSpd = spd;
   
   //Orientation
-  P = .005;
+  P = 0;
   I = 0;
   D = 0;//P * dt / 8;
   
@@ -417,6 +443,7 @@ void loop() {
   
   getToHuman(dist, ang);
   
+  if (debug) {
   String message = "";
   message += dist;
   message += '\t';
@@ -434,7 +461,7 @@ void loop() {
   Serial.println(messagechar);
   
   vw_send((uint8_t *)messagechar, strlen(messagechar));
-  
+  }
   //drive(0.3,RIGHT,1,BACKWARD);
   
 }

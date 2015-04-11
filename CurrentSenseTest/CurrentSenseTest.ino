@@ -27,11 +27,11 @@ void setup() {
   pinMode(en1, OUTPUT);
   pinMode(en2, OUTPUT);
   
-  digitalWrite(dir11, LOW);
-  digitalWrite(dir12, HIGH);
+  digitalWrite(dir11, HIGH);
+  digitalWrite(dir12, LOW);
   
-  digitalWrite(dir21, HIGH);
-  digitalWrite(dir22, LOW);  
+  digitalWrite(dir21, LOW);
+  digitalWrite(dir22, HIGH);  
   
   digitalWrite(en1, HIGH);
   digitalWrite(en2, HIGH);
@@ -50,6 +50,9 @@ int m1v1o = 0;
 int m1v2o = 0;
 int m2v1o = 0;
 int m2v2o = 0;
+int flag = 0;
+int flag2 = 0;
+int flag3 = 0;
 
 float c1 = 0;
 float c2 = 0;
@@ -65,8 +68,21 @@ void loop() {
     incr = .1;
   }
 
+  if (count >= 25 && flag == 0) {
+     
+     count = 110;
+     flag = 1;
+  }
+
+  if (count >= 110.8 && flag2 == 0) {
+     
+     count = 26;
+     flag2 = 1;
+     flag3 = 1;
+  }
+
   analogWrite(pwm1, (unsigned char) count);
-  analogWrite(pwm2, (unsigned char) count);
+  analogWrite(pwm2, (unsigned char) count + 2);
   
   //v1 = analogRead(cs1);
   //v2 = analogRead(cs2);
@@ -85,6 +101,9 @@ void loop() {
   // Serial.print("Speed: ");
   Serial.print(((float) count/255));
   Serial.print("\t");
+  
+  Serial.print(((float) count/255));
+  Serial.print("\t");
   // Serial.print("\tM1 Current: ");
   Serial.print(v1);
   // Serial.print("\tM2 Current: ");
@@ -92,5 +111,7 @@ void loop() {
   Serial.println(v2);
   //delay(10);
   
+  if (flag3 == 0) {
   count += incr;
+  }
 }
