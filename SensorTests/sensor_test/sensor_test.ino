@@ -69,7 +69,7 @@ char justStartedO = 1;
 double totalErrorDist = 0;
 double totalErrorAngle = 0;
 double optimalDistance = 100;
-double dt = 1.0/12;
+double dt = 1.0/40;
 
 int pwm1 = 7;
 int pwm2 = 6;

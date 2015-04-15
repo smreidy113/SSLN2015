@@ -16,9 +16,10 @@ unsigned long prevMicros = 0;
 
 void loop() {
   // put your main code here, to run repeatedly:
-  if (digitalReadFast(input) != prevVal) {
-    Serial.println(((micros() - prevMicros)));
-    prevVal = digitalReadFast(input);
-    prevMicros = micros();
-  }
+  Serial.println(digitalReadFast(input));
+//  if (digitalReadFast(input) != prevVal) {
+//    Serial.println(((micros() - prevMicros)));
+//    prevVal = digitalReadFast(input);
+//    prevMicros = micros();
+//  }
 }
