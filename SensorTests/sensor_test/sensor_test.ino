@@ -2,6 +2,7 @@
 #include <VirtualWire_Config.h>
 //#include <funcs.h>
 #include <stdlib.h>
+#include <digitalWriteFast.h>
 
 #define DIST_BETWEEN_SENSORS 22.3
 #define BETAD 0.1
@@ -13,6 +14,8 @@
 #define X 26.0
 #define Y 32.0
 #define ZP 52.5
+
+int timerpin = 45;
 
 char debug = 0;
 
@@ -85,6 +88,117 @@ float prevSpd = 0;
 int leftspeed = 0;
 int rightspeed = 0;
 
+unsigned long distdata[3];
+
+void pulseInMult(unsigned long *pulses, uint8_t pin1, uint8_t pin2, uint8_t pin3, uint8_t state, unsigned long timeout)
+{
+	
+	// cache the port and bit of the pin in order to speed up the
+	// pulse width measuring loop and achieve finer resolution.  calling
+	// digitalRead() instead yields much coarser resolution.
+
+	unsigned long width = 0; // keep initialization out of time critical area
+	
+	// convert the timeout from microseconds to a number of times through
+	// the initial loop; it takes 16 clock cycles per iteration.
+
+        int numloops = 0;
+        
+        int width1 = 0;
+        int width2 = 0;
+        int width3 = 0;
+
+	unsigned long maxloops = microsecondsToClockCycles(timeout) / 16;
+	
+	// wait for any previous pulse to end
+	while (digitalReadFast(pin1) == state) {
+		if (numloops++ == maxloops)
+			return;
+	}
+
+        //Serial.print("stage 1: ");
+        //Serial.print(numloops);
+
+	// wait for the pulse to start
+	while (digitalReadFast(pin1) != state) {
+		if (numloops++ == maxloops)
+			return;
+	}
+
+        //Serial.print("\tstage 2: ");
+        //Serial.print(numloops);
+
+        char endthis = 0;
+
+        int dummy = 0;
+        int dummy1 = 0;
+
+	// wait for the pulse to stop
+	while (!endthis) {
+                endthis = 1;
+                if (digitalReadFast(pin1) == state) {
+                  endthis = 0;
+                  width1++;
+                }
+                else {
+                  dummy++;
+                  dummy1++;
+                }
+                if (digitalReadFast(pin2) == state) {
+                  endthis = 0;
+                  width2++;
+                }
+                else {
+                  dummy++;
+                  dummy1++;
+                }
+                if (digitalReadFast(pin3) == state) {
+                  endthis = 0;
+                  width3++;
+                }
+                else {
+                  dummy++;
+                  dummy1++;
+                }
+		if (numloops++ == maxloops)
+			return;
+	}
+
+	// convert the reading to microseconds. There will be some error introduced by
+	// the interrupt handlers.
+        //return clockCyclesToMicroseconds(width * 21 + 16);
+	// Conversion constants are compiler-dependent, different compiler versions
+	// have different levels of optimization.
+#if __GNUC__==4 && __GNUC_MINOR__==3 && __GNUC_PATCHLEVEL__==2
+	// avr-gcc 4.3.2
+	pulses[0] = (width1 * 40 + 16) / 58;
+        pulses[1] = (width2 * 40 + 16) / 58;
+        pulses[2] = (width3 * 40 + 16) / 58;
+        return;
+#elif __GNUC__==4 && __GNUC_MINOR__==8 && __GNUC_PATCHLEVEL__==1
+	// avr-gcc 4.8.1
+	pulses[0] = (width1 * 40 + 16) / 58;
+        pulses[1] = (width2 * 40 + 16) / 58;
+        pulses[2] = (width3 * 40 + 16) / 58;
+        return;
+#elif __GNUC__<=4 && __GNUC_MINOR__<=3
+	// avr-gcc <=4.3.x
+	#warning "pulseIn() results may not be accurate"
+	pulses[0] = (width1 * 40 + 16) / 58;
+        pulses[1] = (width2 * 40 + 16) / 58;
+        pulses[2] = (width3 * 40 + 16) / 58;
+        return;
+#else
+	// avr-gcc >4.3.x
+	#warning "pulseIn() results may not be accurate"
+	pulses[0] = (width1 * 24 + 16) / 58;
+        pulses[1] = (width2 * 24 + 16) / 58;
+        pulses[2] = (width3 * 24 + 16) / 58;
+        return;
+#endif
+
+}
+
 void spike(int dir) {
   drive(150.0/255, RIGHT, 1, dir);
   delay(10);
@@ -127,19 +241,19 @@ void drive(double spd, int turndir, double degree, int dir) {
   analogWrite(pwm2, rightspeed);
   
   if (dir == BACKWARD) {
-    digitalWrite(dir11, LOW);
-    digitalWrite(dir12, HIGH);
-    digitalWrite(dir21, HIGH);
-    digitalWrite(dir22, LOW);
+    digitalWriteFast(dir11, LOW);
+    digitalWriteFast(dir12, HIGH);
+    digitalWriteFast(dir21, HIGH);
+    digitalWriteFast(dir22, LOW);
     
     leftspeed = -1 * leftspeed;
     rightspeed = -1 * rightspeed;
   }
   else {
-    digitalWrite(dir11, HIGH);
-    digitalWrite(dir12, LOW);
-    digitalWrite(dir21, LOW);
-    digitalWrite(dir22, HIGH);
+    digitalWriteFast(dir11, HIGH);
+    digitalWriteFast(dir12, LOW);
+    digitalWriteFast(dir21, LOW);
+    digitalWriteFast(dir22, HIGH);
   }
 }
 
@@ -313,10 +427,10 @@ void getToHuman(double dist, double ang) {
 
 void pulseOut(int pin, int us)
 {
-   digitalWrite(pin, HIGH);
+   digitalWriteFast(pin, HIGH);
    us = max(us - 20, 1);
    delayMicroseconds(us);
-   digitalWrite(pin, LOW);
+   digitalWriteFast(pin, LOW);
 }
 
 void setup() {
@@ -345,6 +459,9 @@ void setup() {
   pinMode(wireless, OUTPUT);
   digitalWrite(en1, HIGH);
   digitalWrite(en2, HIGH);
+  
+  pinMode(timerpin, OUTPUT);
+  
 }
 
 int getTime(int pin) {
@@ -352,60 +469,84 @@ int getTime(int pin) {
   pinMode(pin, OUTPUT);
   pulseOut(pin, 0);
   pinMode(pin, INPUT);
-  digitalWrite(pin, LOW);
+  digitalWriteFast(pin, LOW);
   return pulseIn(pin, HIGH)/29;
   
 }
 
 //float *triang;
+const char *msg = "1";
 
 void loop() {
+  
+  if (digitalReadFast(timerpin)) {
+    digitalWriteFast(timerpin, LOW);
+  }
+  else {
+    digitalWriteFast(timerpin, HIGH);
+  }
   
   //vw_setup(2400);
   const char *msg2 = "1";
   const char *msg3 = "2";
-  digitalWrite(13,HIGH);
-  vw_send((uint8_t *)msg2, strlen(msg2));
-  vw_send((uint8_t *)msg2, strlen(msg2));
-  digitalWrite(13,LOW);
-  //duration = getTime(pinput1);
-  //digitalWrite(wireless, LOW);
-  //delay(20);
-  
-  //digitalWrite(wireless, HIGH);
+//  digitalWrite(13,HIGH);
+//  vw_send((uint8_t *)msg2, strlen(msg2));
+//  vw_send((uint8_t *)msg2, strlen(msg2));
+//  digitalWrite(13,LOW);
+//  //duration = getTime(pinput1);
+//  //digitalWrite(wireless, LOW);
+//  //delay(20);
+//  
+//  //digitalWrite(wireless, HIGH);
+//  //delay(10);
+//  
+//  //vw_wait_tx(); // Wait until the whole message is gone
+//  duration = getTime(pinput1);
+//  //digitalWrite(wireless, LOW);
+//  //delay(20);
+//  //delay(500);
+//  //vw_wait_tx();
+//  digitalWrite(13,HIGH);
+//  vw_send((uint8_t *)msg2, strlen(msg2));
+//  //vw_send((uint8_t *)msg2, strlen(msg2));
+//  digitalWrite(13,LOW);
+//  //vw_wait_tx();
+//  //digitalWrite(wireless, HIGH);
+//  //delay(10);
+//  
+//  duration1 = getTime(pinput2);
+//  //digitalWrite(wireless, LOW);
+//  //delay(20);
+//  //delay(500);
+//  //vw_wait_tx();
+//  digitalWrite(13,HIGH);
+//  vw_send((uint8_t *)msg3, strlen(msg3));
+//  //vw_send((uint8_t *)msg2, strlen(msg2));
+//  digitalWrite(13,LOW);
+//  //digitalWrite(wireless, HIGH);
+//  //delay(10);
+//  
+//  duration2 = getTime(pinput3);
+//  
+//  //digitalWrite(wireless, LOW);
   //delay(10);
   
-  //vw_wait_tx(); // Wait until the whole message is gone
-  duration = getTime(pinput1);
-  //digitalWrite(wireless, LOW);
-  //delay(20);
-  //delay(500);
-  //vw_wait_tx();
-  digitalWrite(13,HIGH);
-  vw_send((uint8_t *)msg2, strlen(msg2));
-  //vw_send((uint8_t *)msg2, strlen(msg2));
-  digitalWrite(13,LOW);
-  //vw_wait_tx();
-  //digitalWrite(wireless, HIGH);
-  //delay(10);
   
-  duration1 = getTime(pinput2);
-  //digitalWrite(wireless, LOW);
-  //delay(20);
-  //delay(500);
-  //vw_wait_tx();
-  digitalWrite(13,HIGH);
-  vw_send((uint8_t *)msg3, strlen(msg3));
-  //vw_send((uint8_t *)msg2, strlen(msg2));
-  digitalWrite(13,LOW);
-  //digitalWrite(wireless, HIGH);
-  //delay(10);
+  vw_send((uint8_t *)msg, strlen(msg));
+  delayMicroseconds(20);
+  pinMode(pinput1, OUTPUT);
+  pinMode(pinput2, OUTPUT);
+  pinMode(pinput3, OUTPUT);
+  pulseOut(pinput1, 0);
+  pulseOut(pinput2, 0);
+  pulseOut(pinput3, 0);
+  pinMode(pinput1, INPUT);
+  pinMode(pinput2, INPUT);
+  pinMode(pinput3, INPUT);
   
-  duration2 = getTime(pinput3);
+  pulseInMult(distdata, pinput1, pinput2, pinput3, HIGH, 1000000);
   
-  //digitalWrite(wireless, LOW);
-  //delay(10);
-  getLocInfo(duration2, duration, duration1);
+  getLocInfo(distdata[2], distdata[0], distdata[1]);
   getFilteredDist();
   getFilteredOrientation();
   //getLocInfo(132,84,134);
@@ -426,13 +567,13 @@ void loop() {
     Serial.print(ang);
     
     Serial.print("\t");
-    Serial.print(digitalRead(dir11));
+    Serial.print(digitalReadFast(dir11));
     Serial.print("\t");
-    Serial.print(digitalRead(dir12));
+    Serial.print(digitalReadFast(dir12));
     Serial.print("\t");
-    Serial.print(digitalRead(dir21));
+    Serial.print(digitalReadFast(dir21));
     Serial.print("\t");
-    Serial.print(digitalRead(dir22));
+    Serial.print(digitalReadFast(dir22));
 
     
     Serial.print("\n"); 
