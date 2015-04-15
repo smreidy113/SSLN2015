@@ -68,7 +68,7 @@ void loop() {
     incr = .1;
   }
 
-  if (count >= 25 && flag == 0) {
+  /*if (count >= 25 && flag == 0) {
      
      count = 110;
      flag = 1;
@@ -79,7 +79,7 @@ void loop() {
      count = 26;
      flag2 = 1;
      flag3 = 1;
-  }
+  }*/
 
   analogWrite(pwm1, (unsigned char) count);
   analogWrite(pwm2, (unsigned char) count + 2);

@@ -1,7 +1,7 @@
 try
     clear
     clc
-    arduino = serial('COM6', 'BaudRate', 9600);
+    arduino = serial('COM16', 'BaudRate', 9600);
     fopen(arduino);
     
     formatSpec = '%c';
@@ -20,7 +20,7 @@ try
     frontLM(1) = 0; % pot
     frontLR(1) = 0; % pot
     frontRL(1) = 0; % pot
-    frontRM(1) = 0; % pot
+    frontRM(1) = 0; % pot 10
     frontRR(1) = 0; % pot
     
     
@@ -32,7 +32,7 @@ try
     hold off
     xlabel('number of data points')
     ylabel('front left')
-    ylim([0 100])
+    ylim([0 500])
     grid on
     
     subplot(5,1,2)
@@ -43,7 +43,7 @@ try
     hold off
     xlabel('number of data points')
     ylabel('front right')
-    ylim([0 100])
+    ylim([0 500])
     grid on
     
     subplot(5,1,3)
@@ -54,7 +54,7 @@ try
     hold off
     xlabel('number of data points')
     ylabel('back left')
-    ylim([0 100])
+    ylim([0 500])
     grid on
     
     subplot(5,1,4)
@@ -65,7 +65,7 @@ try
     hold off
     xlabel('number of data points')
     ylabel('back right')
-    ylim([0 100])
+    ylim([0 500])
     grid on
     
     subplot(5,1,5)
@@ -75,26 +75,26 @@ try
     hold off
     xlabel('number of data points')
     ylabel('bottom')
-    ylim([0 100])
+    ylim([0 500])
     grid on
     
     while true
         t(i) = i;
         new_data = str2double(strsplit(fscanf(arduino, formatSpec),'\t'));
         new_data = new_data(2:end-1);
-        bottomR(i) = new_data(1); % pot 1 confirmed
-        bottomL(i) = new_data(2); % pot 0 confirmed
-        backRL(i) = new_data(7); % pot 2 confirmed
-        backRM(i) = new_data(8); % pot 2
-        backRR(i) = new_data(6); % pot 2 confirmed
+        bottomR(i) = new_data(2); % pot confirmed
+        bottomL(i) = new_data(1); % pot confirmed
+        backRL(i) = new_data(7); % pot  confirmed
+        backRM(i) = new_data(8); % pot 
+        backRR(i) = new_data(6); % pot  confirmed
         backLM(i) = new_data(5); % pot  confirmed
         backLL(i) = new_data(3); % pot  confirmed
         backLR(i) = new_data(4); % pot  confirmed
         frontLL(i) = new_data(9);
-        frontLM(i) = new_data(10);
-        frontLR(i) = new_data(11);
-        frontRL(i) = new_data(14); % pot  confirmed
-        frontRM(i) = new_data(13);
+        frontLM(i) = new_data(10); % pot 13 confirmed
+        frontLR(i) = new_data(11); % pot 11 confirmed
+        frontRL(i) = new_data(14); % pot 8 confirmed
+        frontRM(i) = new_data(13); % pot 10 confirmed
         frontRR(i) = new_data(12); % pot
         
         set(a, 'xdata', t, 'ydata', frontLL);

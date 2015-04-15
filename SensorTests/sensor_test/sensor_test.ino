@@ -15,6 +15,69 @@
 #define Y 32.0
 #define ZP 52.5
 
+int analogPins[14] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13};
+
+unsigned short FL[3];
+unsigned short FR[3];
+unsigned short RL[3];
+unsigned short RR[3];
+unsigned short BL;
+unsigned short BR;
+
+void readPT() {
+  FL[0] = analogRead(analogPins[0]);
+  FL[1] = analogRead(analogPins[1]);
+  FL[2] = analogRead(analogPins[2]);
+  
+  FR[0] = analogRead(analogPins[3]);
+  FR[1] = analogRead(analogPins[4]);
+  FR[2] = analogRead(analogPins[5]);
+  
+  RL[0] = analogRead(analogPins[6]);
+  RL[1] = analogRead(analogPins[7]);
+  RL[2] = analogRead(analogPins[8]);
+  
+  RR[0] = analogRead(analogPins[9]);
+  RR[1] = analogRead(analogPins[10]);
+  RR[2] = analogRead(analogPins[11]);
+  
+  BL = analogRead(analogPins[12]);
+  BR = analogRead(analogPins[13]);
+}
+
+char obstacle() {
+  readPT();
+  
+  int thresh = 100;
+  
+  if (FL[0] > thresh || FL[1] > thresh || FL[2] > thresh) {
+    return 1;
+  }
+  
+  if (FR[0] > thresh || FR[1] > thresh || FR[2] > thresh) {
+    return 2;
+  }
+  
+  if (RL[0] > thresh || RL[1] > thresh || RL[2] > thresh) {
+    return 3;
+  }
+  
+  if (RR[0] > thresh || RR[1] > thresh || RR[2] > thresh) {
+    return 4;
+  } 
+  
+  if (BL > thresh) {
+    return 5;
+  }
+  
+  if (BL > thresh) {
+    return 6;
+  }
+  
+  return 0;
+  
+}
+
 int timerpin = 45;
 
 char debug = 0;
@@ -304,9 +367,9 @@ void getFilteredOrientation() {
 void getToHuman(double dist, double ang) {
   
   //Distance
-  double P = 0.004;
+  double P = 0.007;
   double I = 0;
-  double D = 0.01;
+  double D = 0.003;
 
   double maxError;
 
@@ -353,8 +416,9 @@ void getToHuman(double dist, double ang) {
   }
   
   if (debug) {
+  Serial.print("speed: ");
   Serial.print(spd);
-  Serial.print("\n");
+  //Serial.print("\n");
   }
   
   if (isnan(spd)) {
@@ -374,7 +438,7 @@ void getToHuman(double dist, double ang) {
   prevSpd = spd;
   
   //Orientation
-  P = 0;
+  P = 0.03;
   I = 0;
   D = 0;//P * dt / 8;
   
@@ -479,11 +543,11 @@ const char *msg = "1";
 
 void loop() {
   
-  if (digitalReadFast(timerpin)) {
-    digitalWriteFast(timerpin, LOW);
+  if (digitalReadFast(13)) {
+    digitalWriteFast(13, LOW);
   }
   else {
-    digitalWriteFast(timerpin, HIGH);
+    digitalWriteFast(13, HIGH);
   }
   
   //vw_setup(2400);
@@ -533,6 +597,7 @@ void loop() {
   
   
   vw_send((uint8_t *)msg, strlen(msg));
+  //vw_send((uint8_t *)msg, strlen(msg));
   delayMicroseconds(20);
   pinMode(pinput1, OUTPUT);
   pinMode(pinput2, OUTPUT);
@@ -582,7 +647,9 @@ void loop() {
   //driver.setM1Speed(-50);
   //delay(10);
   
-  getToHuman(dist, ang);
+  //if (!obstacle()) {
+    getToHuman(dist, ang);
+  //}
   
   if (debug) {
   String message = "";
