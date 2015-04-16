@@ -106,6 +106,12 @@ char obstacle() {
   
 }
 
+/** STAIRS DETECTION
+
+PATRIK, THE CODE IS HERE
+
+**/
+
 unsigned int normalFloor;
 
 void calibrate() {
@@ -619,6 +625,8 @@ void setup() {
   digitalWrite(en2, HIGH);
   
   pinMode(timerpin, OUTPUT);
+  
+  calibrate();
   
 }
 
