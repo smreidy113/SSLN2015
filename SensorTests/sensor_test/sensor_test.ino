@@ -15,6 +15,34 @@
 #define Y 32.0
 #define ZP 52.5
 
+char debug = 0;
+char pton = 0;
+int timerpin = 45;
+float topspeed = 0.6;
+
+int pinput1 = 31;
+int pinput2 = 35;
+int pinput3 = 39;
+
+int pwm1 = 7;
+int pwm2 = 6;
+int dir11 = 22;
+int dir12 = 23;
+int dir21 = 24;
+int dir22 = 25;
+int en1 = 26;
+int en2 = 27;
+
+double optimalDistance = 100;
+double dt = 1.0/40;
+
+/***
+
+PT SENSING: We analogread all this stuff in, and depending on the values we know
+that we're in either a good or bad place.
+
+***/
+
 int analogPins[14] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13};
 
 unsigned short FL[3];
@@ -70,7 +98,7 @@ char obstacle() {
     return 5;
   }
   
-  if (BL > thresh) {
+  if (BR > thresh) {
     return 6;
   }
   
@@ -78,12 +106,68 @@ char obstacle() {
   
 }
 
-int timerpin = 45;
+unsigned int normalFloor;
 
-char debug = 0;
+void calibrate() {
+ 
+ unsigned int sumPT = 0;
+  
+ for (int i = 0; i < 20; i++) {
+   readPT();
+   sumPT += BR;
+ }
+ 
+ normalFloor = sumPT / 20;
+  
+}
 
-//#include <VirtualWire.h>
-#include <stdlib.h>
+const int PTCapacity = 10;
+
+unsigned int prevStairVals[PTCapacity];
+unsigned int stairValsTotal;
+
+int numPTSamples;
+
+int stairsThresh;
+
+char stairs() {
+  
+  if (numPTSamples < PTCapacity) {
+    prevStairVals[numPTSamples] = BR;
+    numPTSamples++;
+    
+    if (numPTSamples == PTCapacity) {
+      for (int i = 0; i < PTCapacity; i++) {
+        stairValsTotal += prevStairVals[i];
+      }
+    }
+    return 0;
+  }
+  
+  stairValsTotal -= prevStairVals[0];
+  
+  for (int i = 0; i < PTCapacity - 1; i++) {
+    prevStairVals[i] = prevStairVals[i-1];
+  }
+  
+  prevStairVals[PTCapacity - 1] = BR;
+  
+  stairValsTotal += BR;
+  
+  if (abs((stairValsTotal / PTCapacity) - normalFloor) > stairsThresh) {
+    return 1;
+  }
+  
+  return 0;
+  
+}
+
+/***
+
+TRIANGULATION: All the code for determining distance/orientation info, filtering it,
+etc. goes here.
+
+***/
 
 float Z = sqrt(pow(Y,2)+pow(ZP,2));
 float t = atan2(ZP,Y);
@@ -114,44 +198,77 @@ void *getLocInfo(int l1, int l3, int l2) {
   triang[1] = orientation*180/3.14;
 }
 
+//Filtering the data happens here.
+
 double getOrientationInfo(int d1, int d2) {
   return atan2(d2,d1);
 }
 
-int pinput1 = 31;
-int pinput2 = 35;
-int pinput3 = 39;
-int wireless = 12;
-unsigned long duration;
-unsigned long duration1;
-unsigned long duration2;
-
 char justStartedD = 1;
 char justStartedO = 1;
-
-double totalErrorDist = 0;
-double totalErrorAngle = 0;
-double optimalDistance = 100;
-double dt = 1.0/40;
-
-int pwm1 = 7;
-int pwm2 = 6;
-int dir11 = 22;
-int dir12 = 23;
-int dir21 = 24;
-int dir22 = 25;
-int en1 = 26;
-int en2 = 27;
 
 float prevDist;
 float prevOrientation;
 
-float prevSpd = 0;
+int numNans = 0;
 
-int leftspeed = 0;
-int rightspeed = 0;
+void getFilteredDist() {
+  prevDist = ftriang[0];
+  if (justStartedD) {
+    if (!isnan(triang[0])) {
+      prevDist = triang[0];
+      justStartedD = 0;
+      ftriang[0] = triang[0];
+      numNans = 0;
+      return;
+    }
+    numNans++;
+    ftriang[0] = 0;
+    return;
+  }
+  if (!isnan(triang[0])) {
+    ftriang[0] = BETAD * prevDist + (1 - BETAD) * triang[0];
+    numNans = 0;
+  } else {
+    numNans++;
+  }
+  return;
+}
+  
+void getFilteredOrientation() {
+  prevOrientation = ftriang[1];
+  if (justStartedO) {
+    if (!isnan(triang[1])) {
+      prevOrientation = triang[1];
+      justStartedO = 0;
+      ftriang[1] = triang[1];
+      return;
+    }
+    ftriang[1] = 0;
+    return;
+  }
+  if (!isnan(triang[1])) {
+    ftriang[1] = BETAO * prevOrientation + (1 - BETAO) * triang[1];
+  }
+  return;
+  
+}
+
+/***
+
+ULTRASONIC SENSING: Handling all the wait times and syncing the ping detecting goes here.
+
+***/
 
 unsigned long distdata[3];
+
+void pulseOut(int pin, int us)
+{
+   digitalWriteFast(pin, HIGH);
+   us = max(us - 20, 1);
+   delayMicroseconds(us);
+   digitalWriteFast(pin, LOW);
+}
 
 void pulseInMult(unsigned long *pulses, uint8_t pin1, uint8_t pin2, uint8_t pin3, uint8_t state, unsigned long timeout)
 {
@@ -262,6 +379,25 @@ void pulseInMult(unsigned long *pulses, uint8_t pin1, uint8_t pin2, uint8_t pin3
 
 }
 
+/***
+
+DRIVING CONTROL: Once we know the speed and turn radius we want, we handle delivering
+the voltage to the motor drivers here.
+
+***/
+
+int leftspeed = 0;
+int rightspeed = 0;
+
+void brake() {
+  analogWrite(pwm1, 128);
+  analogWrite(pwm2, 128);
+  digitalWriteFast(dir11, HIGH);
+  digitalWriteFast(dir12, HIGH);
+  digitalWriteFast(dir21, HIGH);
+  digitalWriteFast(dir22, HIGH);
+}
+
 void spike(int dir) {
   drive(150.0/255, RIGHT, 1, dir);
   delay(10);
@@ -297,11 +433,11 @@ void drive(double spd, int turndir, double degree, int dir) {
     }
   }
   if (dir == FORWARD) {
-    analogWrite(pwm1, leftspeed + 8);
+    analogWrite(pwm2, rightspeed + 4);
   } else {
-    analogWrite(pwm1, leftspeed + 1);
+    analogWrite(pwm2, rightspeed + 1);
   }
-  analogWrite(pwm2, rightspeed);
+  analogWrite(pwm1, leftspeed);
   
   if (dir == BACKWARD) {
     digitalWriteFast(dir11, LOW);
@@ -320,55 +456,22 @@ void drive(double spd, int turndir, double degree, int dir) {
   }
 }
 
-int numNans = 0;
+/***
 
-void getFilteredDist() {
-  prevDist = ftriang[0];
-  if (justStartedD) {
-    if (!isnan(triang[0])) {
-      prevDist = triang[0];
-      justStartedD = 0;
-      ftriang[0] = triang[0];
-      numNans = 0;
-      return;
-    }
-    numNans++;
-    ftriang[0] = 0;
-    return;
-  }
-  if (!isnan(triang[0])) {
-    ftriang[0] = BETAD * prevDist + (1 - BETAD) * triang[0];
-    numNans = 0;
-  } else {
-    numNans++;
-  }
-  return;
-}
-  
-void getFilteredOrientation() {
-  prevOrientation = ftriang[1];
-  if (justStartedO) {
-    if (!isnan(triang[1])) {
-      prevOrientation = triang[1];
-      justStartedO = 0;
-      ftriang[1] = triang[1];
-      return;
-    }
-    ftriang[1] = 0;
-    return;
-  }
-  if (!isnan(triang[1])) {
-    ftriang[1] = BETAO * prevOrientation + (1 - BETAO) * triang[1];
-  }
-  return;
-  
-}
+CONTROLS: Handling dist/orientation error compensation happens here.
+
+***/
+
+double totalErrorDist = 0;
+double totalErrorAngle = 0;
+
+float prevSpd = 0;
   
 void getToHuman(double dist, double ang) {
   
   //Distance
   double P = 0.007;
-  double I = 0;
+  double I = 0;//0.00002;
   double D = 0.003;
 
   double maxError;
@@ -424,14 +527,14 @@ void getToHuman(double dist, double ang) {
   if (isnan(spd)) {
     spd = 0; 
   }
-  if (spd > 0.4) {
-    spd = 0.4;
+  if (spd > topspeed) {
+    spd = topspeed;
   }
-  if (spd < -0.4) {
-    spd = -0.4;
+  if (spd < -1*topspeed) {
+    spd = -1*topspeed;
   }
   
-  if (numNans > 10 || dist <= 0.00) {
+  if (numNans > 50 || dist <= 0.00) {
     spd = 0;
   }
   
@@ -489,14 +592,6 @@ void getToHuman(double dist, double ang) {
 }
 
 
-void pulseOut(int pin, int us)
-{
-   digitalWriteFast(pin, HIGH);
-   us = max(us - 20, 1);
-   delayMicroseconds(us);
-   digitalWriteFast(pin, LOW);
-}
-
 void setup() {
   Serial.begin(9600);	  // Debugging only
   
@@ -520,21 +615,10 @@ void setup() {
   pinMode(dir22, OUTPUT);
   pinMode(en1, OUTPUT);
   pinMode(en2, OUTPUT);
-  pinMode(wireless, OUTPUT);
   digitalWrite(en1, HIGH);
   digitalWrite(en2, HIGH);
   
   pinMode(timerpin, OUTPUT);
-  
-}
-
-int getTime(int pin) {
-  //delay(4);
-  pinMode(pin, OUTPUT);
-  pulseOut(pin, 0);
-  pinMode(pin, INPUT);
-  digitalWriteFast(pin, LOW);
-  return pulseIn(pin, HIGH)/29;
   
 }
 
@@ -549,52 +633,6 @@ void loop() {
   else {
     digitalWriteFast(13, HIGH);
   }
-  
-  //vw_setup(2400);
-  const char *msg2 = "1";
-  const char *msg3 = "2";
-//  digitalWrite(13,HIGH);
-//  vw_send((uint8_t *)msg2, strlen(msg2));
-//  vw_send((uint8_t *)msg2, strlen(msg2));
-//  digitalWrite(13,LOW);
-//  //duration = getTime(pinput1);
-//  //digitalWrite(wireless, LOW);
-//  //delay(20);
-//  
-//  //digitalWrite(wireless, HIGH);
-//  //delay(10);
-//  
-//  //vw_wait_tx(); // Wait until the whole message is gone
-//  duration = getTime(pinput1);
-//  //digitalWrite(wireless, LOW);
-//  //delay(20);
-//  //delay(500);
-//  //vw_wait_tx();
-//  digitalWrite(13,HIGH);
-//  vw_send((uint8_t *)msg2, strlen(msg2));
-//  //vw_send((uint8_t *)msg2, strlen(msg2));
-//  digitalWrite(13,LOW);
-//  //vw_wait_tx();
-//  //digitalWrite(wireless, HIGH);
-//  //delay(10);
-//  
-//  duration1 = getTime(pinput2);
-//  //digitalWrite(wireless, LOW);
-//  //delay(20);
-//  //delay(500);
-//  //vw_wait_tx();
-//  digitalWrite(13,HIGH);
-//  vw_send((uint8_t *)msg3, strlen(msg3));
-//  //vw_send((uint8_t *)msg2, strlen(msg2));
-//  digitalWrite(13,LOW);
-//  //digitalWrite(wireless, HIGH);
-//  //delay(10);
-//  
-//  duration2 = getTime(pinput3);
-//  
-//  //digitalWrite(wireless, LOW);
-  //delay(10);
-  
   
   vw_send((uint8_t *)msg, strlen(msg));
   //vw_send((uint8_t *)msg, strlen(msg));
@@ -618,11 +656,11 @@ void loop() {
   float dist = ftriang[0];
   float ang = ftriang[1];
   if (debug) {
-    Serial.print(duration);
+    Serial.print(distdata[2]);
     Serial.print("\t");
-    Serial.print(duration1);
+    Serial.print(distdata[0]);
     Serial.print("\t");
-    Serial.print(duration2);
+    Serial.print(distdata[1]);
     Serial.print("\t");
     Serial.print("Prev Distance: ");
     Serial.print(prevDist);
@@ -643,13 +681,16 @@ void loop() {
     
     Serial.print("\n"); 
   }
-  //driver.init();
-  //driver.setM1Speed(-50);
-  //delay(10);
   
-  //if (!obstacle()) {
+  if (pton) {
+    if (!stairs()) {
+      getToHuman(dist, ang);
+    } else {
+      brake();
+    }
+  } else {
     getToHuman(dist, ang);
-  //}
+  }
   
   if (debug) {
   String message = "";
