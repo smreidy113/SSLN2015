@@ -1,7 +1,7 @@
 try
     clear
     clc
-    arduino = serial('COM16', 'BaudRate', 9600);
+    arduino = serial('COM17', 'BaudRate', 9600);
     fopen(arduino);
     
     formatSpec = '%c';
@@ -117,7 +117,7 @@ try
     
 catch
     
-    fclose(serial('COM6','Baudrate', 9600));
+    fclose(serial('COM17','Baudrate', 9600));
     fclose(instrfindall);
     
 end

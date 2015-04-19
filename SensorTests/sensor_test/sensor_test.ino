@@ -26,12 +26,14 @@ int pinput3 = 39;
 
 int pwm1 = 7;
 int pwm2 = 6;
-int dir11 = 22;
-int dir12 = 23;
-int dir21 = 24;
-int dir22 = 25;
+int dir11 = 23;
+int dir12 = 22;
+int dir21 = 25;
+int dir22 = 24;
 int en1 = 26;
 int en2 = 27;
+
+char wirelesscomm = 1;
 
 double optimalDistance = 100;
 double dt = 1.0/40;
@@ -410,7 +412,7 @@ void spike(int dir) {
 }
 
 void drive(double spd, int turndir, double degree, int dir) {
-  if (turndir == RIGHT) {
+  if (turndir == LEFT) {
     if (dir == FORWARD) {
       leftspeed = (unsigned char) (spd * 255);
       rightspeed = (unsigned char) (degree * spd * 255);
@@ -424,7 +426,7 @@ void drive(double spd, int turndir, double degree, int dir) {
       //analogWrite(pwm2, (unsigned char) (spd * 255));
     }
   }
-  if (turndir == LEFT) {
+  if (turndir == RIGHT) {
     if (dir == FORWARD) {
       leftspeed = (unsigned char) (degree * spd * 255);
       rightspeed = (unsigned char) (spd * 255);
@@ -626,7 +628,7 @@ void setup() {
   
   pinMode(timerpin, OUTPUT);
   
-  calibrate();
+  //calibrate();
   
 }
 
@@ -635,12 +637,6 @@ const char *msg = "1";
 
 void loop() {
   
-  if (digitalReadFast(13)) {
-    digitalWriteFast(13, LOW);
-  }
-  else {
-    digitalWriteFast(13, HIGH);
-  }
   
   vw_send((uint8_t *)msg, strlen(msg));
   //vw_send((uint8_t *)msg, strlen(msg));
@@ -700,8 +696,14 @@ void loop() {
     getToHuman(dist, ang);
   }
   
-  if (debug) {
+  if (wirelesscomm) {
   String message = "";
+  message += distdata[2];
+  message += '\t';
+  message += distdata[0];
+  message += '\t';
+  message += distdata[1];
+  message += '\t';
   message += dist;
   message += '\t';
   message += ang;
@@ -709,15 +711,13 @@ void loop() {
   message += leftspeed;
   message += '\t';
   message += rightspeed;
-  message += '\t';
-  message += prevDist;
-  char messagechar[40];
+  char messagechar[80];
   
   message.toCharArray(messagechar, 40);
   
   Serial.println(messagechar);
   
-  vw_send((uint8_t *)messagechar, strlen(messagechar));
+  //vw_send((uint8_t *)messagechar, strlen(messagechar));
   }
   //drive(0.3,RIGHT,1,BACKWARD);
   
